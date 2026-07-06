@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    # Disposable Postgres for this job only -- schema, RLS policies, and the
+    # app_user role are created fresh from db/migrations on every run, so a
+    # future change to any of them is exercised for real, not against a
+    # stale/cached database.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DATABASE_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Apply DB migrations (schema + RLS policies + app_user role)
+        run: npm run db:migrate
+
+      - name: Seed reference data
+        run: npm run db:seed
+
+      - name: Generate ephemeral app_user password
+        run: echo "APP_USER_PASSWORD=$(node -e "console.log(require('crypto').randomBytes(24).toString('hex'))")" >> "$GITHUB_ENV"
+
+      - name: Set app_user password
+        run: node scripts/set-app-user-password.mjs
+
+      - name: Run tests (includes RLS multi-tenant isolation under pooling)
+        run: npm run test
+        env:
+          TEST_ADMIN_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+          TEST_DATABASE_URL: postgres://app_user:${{ env.APP_USER_PASSWORD }}@localhost:5432/postgres
