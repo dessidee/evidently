@@ -3,6 +3,7 @@ import { pgPool } from "@/lib/db/pool";
 
 export class UnauthorizedError extends Error {}
 export class ForbiddenError extends Error {}
+export class PlanRequiredError extends Error {}
 
 export interface AuthContext {
   orgId: string;
@@ -62,5 +63,29 @@ export function requireOrgMatch(ctx: AuthContext, pathOrgId: string): void {
 export function requireAdmin(ctx: AuthContext): void {
   if (ctx.role !== "admin") {
     throw new ForbiddenError("Admin role required");
+  }
+}
+
+/**
+ * Gates a single action (e.g. requesting a new readiness review) on the
+ * org's current plan_tier. This is the ONLY thing a downgrade/cancellation
+ * restricts -- it never hides or deletes evidence, controls progress, or
+ * past reviews, which remain readable regardless of plan_tier. See
+ * db/migrations/0002_billing.sql and the Stripe webhook handler for how
+ * plan_tier is kept in sync with the subscription status.
+ *
+ * organizations has no RLS (it's the tenant root, not tenant-scoped data),
+ * so this is a plain query, no withOrgContext needed.
+ */
+export async function requirePlan(
+  ctx: AuthContext,
+  tier: "free" | "readiness_review"
+): Promise<void> {
+  const { rows } = await pgPool.query<{ plan_tier: string }>(
+    "select plan_tier from organizations where id = $1",
+    [ctx.orgId]
+  );
+  if (rows[0]?.plan_tier !== tier) {
+    throw new PlanRequiredError(`This action requires the '${tier}' plan`);
   }
 }

@@ -45,6 +45,18 @@ without re-reading the reasoning below.
    user's org before any tenant context exists yet (first request of a
    session, or invite acceptance during signup).
 
+5. **Stripe webhooks (`src/app/api/billing/webhook/route.ts`) verify the
+   signature first**, over the raw request body, before any JSON parsing or
+   business logic. Processing is idempotent: each `event.id` is inserted into
+   `stripe_webhook_events` (unique key) before being acted on, so Stripe's
+   at-least-once redelivery is a no-op on replay. A `stripe_last_event_at`
+   guard on `organizations` also protects against out-of-order delivery --
+   Stripe does not guarantee event ordering, so a delayed event can never
+   overwrite fresher subscription state. Downgrading/canceling only ever
+   changes `plan_tier`, which gates a single action (starting a new
+   readiness review, via `requirePlan()`) -- it never hides or deletes
+   evidence, controls progress, or past reviews.
+
 ## Setup
 
 1. `cp .env.example .env.local` and fill in values (see comments in that file
@@ -78,6 +90,12 @@ aren't set.
 Week 1 (this scaffold): schema + RLS, Clerk signup -> org provisioning,
 Slack OAuth install flow, invite endpoint.
 
-Not yet built: evidence upload UI/API, nudge scheduler, AI readiness review,
-Stripe billing, Slack slash-command/interaction handlers (events/commands
+Week 2: Stripe billing -- checkout session creation, webhook handling
+(`checkout.session.completed`, `customer.subscription.updated/deleted`) with
+idempotent + order-safe processing, and the `plan_tier` gate on creating a
+new readiness review.
+
+Not yet built: evidence upload UI/API, nudge scheduler, the actual AI
+readiness review analysis (only the gated `pending`-row creation endpoint
+exists so far), Slack slash-command/interaction handlers (events/commands
 routes are referenced in middleware as public but not yet implemented).
