@@ -9,12 +9,14 @@
     "lint": "eslint",
     "test": "vitest run",
     "db:migrate": "node scripts/migrate.mjs",
-    "db:seed": "node scripts/seed.mjs"
+    "db:seed": "node scripts/seed.mjs",
+    "storage:setup-bucket": "node scripts/setup-evidence-bucket.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.5.12",
     "@slack/oauth": "^3.0.5",
     "@slack/web-api": "^7.18.0",
+    "@supabase/supabase-js": "^2.110.0",
     "dotenv": "^17.4.2",
     "next": "16.2.10",
     "pg": "^8.22.0",

@@ -95,7 +95,11 @@ Week 2: Stripe billing -- checkout session creation, webhook handling
 idempotent + order-safe processing, and the `plan_tier` gate on creating a
 new readiness review.
 
-Not yet built: evidence upload UI/API, nudge scheduler, the actual AI
+Not yet built (DB schema exists for these, but no working API/handlers):
+evidence upload API (only the `evidence.storage_path` column exists; no
+storage integration, no upload/list routes), nudge scheduler, the actual AI
 readiness review analysis (only the gated `pending`-row creation endpoint
-exists so far), Slack slash-command/interaction handlers (events/commands
-routes are referenced in middleware as public but not yet implemented).
+exists so far, no worker/Claude API call, no findings ever get written to
+`readiness_review_findings`), Slack slash-command/interaction handlers
+(`/api/slack/events|commands|interactions` are referenced in middleware as
+public routes but have no route files -- only OAuth install/callback exist).
