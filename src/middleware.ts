@@ -19,6 +19,12 @@ export const isPublicRoute = createRouteMatcher([
   "/api/cron/send-nudges",
 ]);
 
+// TODO: tests/middleware-public-routes.test.ts only unit-tests isPublicRoute
+// itself (that every self-verifying route is listed, and unrelated routes
+// aren't) -- it does not exercise this conditional end-to-end through real
+// Next.js middleware. Catching a regression in this wiring (e.g. the
+// condition below getting inverted or dropped) would need a `next start` +
+// HTTP integration test; no such harness exists in this project yet.
 export default clerkMiddleware(async (auth, req) => {
   if (!isPublicRoute(req)) {
     await auth.protect();
